@@ -38,7 +38,9 @@ create column family video_rating
   and replicate_on_write=true;
 
 create column family video_event
-  WITH comparator = UTF8Type and
+  with comparator = 'CompositeType(UTF8Type,UTF8Type)'
+  and key_validation_class = 'UTF8Type'
+  and default_validation_class = 'UTF8Type';
   column_metadata =
   [
     {column_name: event, validation_class: UTF8Type}
