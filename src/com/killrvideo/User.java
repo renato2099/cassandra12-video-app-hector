@@ -55,4 +55,8 @@ public class User {
 		this.lastname = lastname;
 	}
 
+	@Override
+	public String toString(){
+		return this.getUsername() + this.getFirstname() + this.getLastname() + this.getPassword();
+	}
 }

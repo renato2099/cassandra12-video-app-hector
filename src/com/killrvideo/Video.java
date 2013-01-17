@@ -65,5 +65,12 @@ public class Video {
 
 		return sb.toString();
 	}
-	
+
+    @Override
+    public String toString(){
+        return  "\nUUID: " + this.getVideoId() +
+                "\nName: " + this.getVideoName() +
+                "\nDescription: " + this.getDescription() +
+                "\nTags: " + this.getDelimitedTags();
+    }
 }
