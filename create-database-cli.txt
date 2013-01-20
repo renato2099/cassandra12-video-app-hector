@@ -37,8 +37,12 @@ create column family video_rating
   and default_validation_class=CounterColumnType 
   and replicate_on_write=true;
 
+--create column family video_event
+--with comparator = 'CompositeType(UTF8Type,UTF8Type)'
+--and key_validation_class = 'UTF8Type'
+
 create column family video_event
-  with comparator = 'CompositeType(UTF8Type,UTF8Type)'
+  with comparator = 'CompositeType(UTF8Type,TimeUUIDType(reversed=true))'
   and key_validation_class = 'UTF8Type'
   and default_validation_class = 'UTF8Type';
   column_metadata =

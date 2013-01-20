@@ -1,29 +1,23 @@
 package com.killrvideo;
 
-import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
-import java.util.List;
 import java.util.UUID;
-
-import org.apache.cassandra.thrift.ColumnOrSuperColumn;
-import org.apache.cassandra.thrift.ColumnParent;
-import org.apache.cassandra.thrift.ConsistencyLevel;
-import org.apache.cassandra.thrift.SlicePredicate;
-import org.apache.commons.lang.StringEscapeUtils;
 
 import me.prettyprint.cassandra.serializers.CompositeSerializer;
 import me.prettyprint.cassandra.serializers.StringSerializer;
+import me.prettyprint.cassandra.serializers.TimeUUIDSerializer;
 import me.prettyprint.cassandra.serializers.UUIDSerializer;
 import me.prettyprint.cassandra.service.ColumnSliceIterator;
+import me.prettyprint.cassandra.utils.TimeUUIDUtils;
 import me.prettyprint.hector.api.Keyspace;
+import me.prettyprint.hector.api.beans.AbstractComposite.ComponentEquality;
 import me.prettyprint.hector.api.beans.ColumnSlice;
 import me.prettyprint.hector.api.beans.Composite;
-import me.prettyprint.hector.api.beans.CounterSlice;
 import me.prettyprint.hector.api.beans.HColumn;
 import me.prettyprint.hector.api.beans.HCounterColumn;
 import me.prettyprint.hector.api.beans.OrderedRows;
@@ -43,6 +37,7 @@ public class BusinessLogic {
     
     private static StringSerializer stringSerializer = StringSerializer.get();
     private static UUIDSerializer uuidSerializer = UUIDSerializer.get();
+    private static TimeUUIDSerializer timeuuidSerializer = TimeUUIDSerializer.get();
 
     public void setUser(User user, Keyspace keyspace) {
 
@@ -354,8 +349,9 @@ public class BusinessLogic {
             //mutator.addInsertion(username + ":" + videoId, "video_event",
             //        HFactory.createStringColumn("start:" + timestamp, ""));
             Composite composite = new Composite();
-            composite.addComponent("start", StringSerializer.get());
-            composite.addComponent(timestamp.toString(), StringSerializer.get());
+            composite.setComponent(0,"start", StringSerializer.get());
+            //composite.setComponent(1,timestamp.toString(), stringSerializer);
+            composite.setComponent(1, TimeUUIDUtils.getTimeUUID(timestamp.getTime()), uuidSerializer);
             HColumn<Composite,String> col = HFactory.createColumn(composite, "", new CompositeSerializer(), stringSerializer);
             mutator.addInsertion(username + ":" + videoId, EVENT_TIMESTAMP, col);
             
@@ -365,7 +361,6 @@ public class BusinessLogic {
         }
     }
 
-    
     public void setVideoStopEvent(UUID videoId, String username, Timestamp stopEvent, Timestamp videoTimestamp,
             Keyspace keyspace) {
         Mutator<String> mutator = HFactory.createMutator(keyspace, stringSerializer);
@@ -375,7 +370,7 @@ public class BusinessLogic {
             
             Composite composite = new Composite();
             composite.addComponent("stop", StringSerializer.get());
-            composite.addComponent(stopEvent.toString(), StringSerializer.get());
+            composite.addComponent(TimeUUIDUtils.getTimeUUID(stopEvent.getTime()), uuidSerializer);
             HColumn<Composite,String> col = HFactory.createColumn(composite,
                                                                     videoTimestamp.toString(),
                                                                     new CompositeSerializer(),
@@ -389,23 +384,27 @@ public class BusinessLogic {
     }
 
     public Timestamp getVideoLastStopEvent(UUID videoId, String username, Keyspace keyspace) {
-        // TODO Implement
         /*
          * This method will return the video timestamp of the last stop event
          * for a given video identified by videoid. As a hint, you will be using
          * a getSlice to find certain strings to narrow the search.
          */
         Timestamp ts = null; 
-        String startArg = "start";
+        String startArg = "stop";
 
         // Note the use of 'equal' and 'greater-than-equal' for the start and end.
         // this has to be the case when we want all 
         Composite start = compositeFrom(startArg, Composite.ComponentEquality.EQUAL);
         Composite end = compositeFrom(startArg, Composite.ComponentEquality.GREATER_THAN_EQUAL);
-        
+
         VideoEventCompositeQueryIterator iter =
-                new VideoEventCompositeQueryIterator("ALL", start, end, keyspace);
-        System.out.printf("Printing all columns starting with %s", startArg);
+                                                new VideoEventCompositeQueryIterator(
+                                                      username + ":" + videoId, 
+                                                      start, 
+                                                      end, 
+                                                      keyspace);
+
+        System.out.printf("Printing all columns starting with \"%s\"\n", startArg);
         int count = 0;
         for ( HColumn<Composite,String> column : iter ) {
 
@@ -459,7 +458,11 @@ public class BusinessLogic {
         sliceQuery.setColumnFamily("video_event");
         sliceQuery.setKey(key);
 
-        sliceIterator = new ColumnSliceIterator<String, Composite, String>(sliceQuery, start, end, false);
+        sliceIterator = new ColumnSliceIterator<String, Composite, String>(
+                                              sliceQuery,
+                                              this.start,
+                                              this.end,
+                                              false);
 
       }
 
